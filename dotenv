@@ -1,0 +1,11 @@
+GH_USER=<your GH user>
+
+GH_TOKEN=<your GH token>
+
+USERS=<comma-separated list of GH users>
+
+REPOS=<comma-separated list of GH repos>
+
+START=<start date formatted as YYYY-MM-DD>
+
+END=<start date formatted as YYYY-MM-DD>
