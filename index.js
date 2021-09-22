@@ -45,7 +45,7 @@ const doRequest = async (member, repo) => {
       `${repo}`,
       `${commitsData.total_count}`,
       `start ${startDate}`,
-      `end$ {endDate}`,
+      `end ${endDate}`,
       `total`,
       `additions`,
       `deletions`,
@@ -69,6 +69,9 @@ const doRequest = async (member, repo) => {
       [
         `${item.commit.message.split("\n")[0]}`,
         `${item.html_url}`,
+        `-`,
+        `-`,
+        `-`,
         `${itemData.stats.total}`,
         `${itemData.stats.additions}`,
         `${itemData.stats.deletions}`,
@@ -119,7 +122,7 @@ const main = async () => {
 
   fs.writeFileSync(
     path.join(__dirname, "out", "summary.csv"),
-    sumsResultStrings.join(`\n${"-".repeat(80)}\n`)
+    sumsResultStrings.join(`\n`)
   );
 };
 
