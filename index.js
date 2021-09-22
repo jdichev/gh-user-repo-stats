@@ -10,7 +10,7 @@ const headersList = {
 
 const delimiter = ";;";
 const github = process.env.GH_URL;
-const members = process.env.USERS.split(",");
+const members = process.env.MEMBERS.split(",");
 const repos = process.env.REPOS.split(",");
 const startDate = process.env.START;
 const endDate = process.env.END;
@@ -20,46 +20,67 @@ if (!fs.existsSync(outDir)) {
   fs.mkdirSync(outDir);
 }
 
-const doRequest = async (member, repo) => {
-  const reqOptionsCommits = {
-    url:
-      `${github}/search/commits?q=author:${member}+repo:${repo}` +
-      `+committer-date:${startDate}..${endDate}+merge:false`,
-    method: "GET",
-    headers: headersList,
-    auth: {
-      username: process.env.GH_USER,
-      password: process.env.GH_TOKEN,
-    },
-  };
+const handleError = (error) => console.log(error);
 
+const doRequest = async (member, repo) => {
   const csvRows = [];
 
-  const response = await axios
-    .request(reqOptionsCommits)
-    .catch((error) => console.log(error));
+  const { data: commitsData } = await axios
+    .request({
+      url:
+        `${github}/search/commits?q=author-email:${member}+repo:${repo}` +
+        `+committer-date:${startDate}..${endDate}+merge:false`,
+      method: "GET",
+      headers: headersList,
+      auth: {
+        username: process.env.GH_USER,
+        password: process.env.GH_TOKEN,
+      },
+    })
+    .catch(handleError);
 
   csvRows.push(
     [
       `${member}`,
       `${repo}`,
-      `${response.data.total_count}`,
+      `${commitsData.total_count}`,
       `start ${startDate}`,
       `end$ {endDate}`,
+      `total`,
+      `additions`,
+      `deletions`,
     ].join(delimiter)
   );
 
-  response.data.items.forEach((item) => {
+  for (const item of commitsData.items) {
+    const { data: itemData } = await axios
+      .request({
+        url: item.url,
+        method: "GET",
+        headers: headersList,
+        auth: {
+          username: process.env.GH_USER,
+          password: process.env.GH_TOKEN,
+        },
+      })
+      .catch(handleError);
+
     csvRows.push(
-      [`${item.commit.message.split("\n")[0]}`, `${item.html_url}`].join(
-        delimiter
-      )
+      [
+        `${item.commit.message.split("\n")[0]}`,
+        `${item.html_url}`,
+        `${itemData.stats.total}`,
+        `${itemData.stats.additions}`,
+        `${itemData.stats.deletions}`,
+      ].join(delimiter)
     );
-  });
+
+    console.log(".");
+  }
 
   const resultString = csvRows.join("\n");
 
-  return { resultString, totalCount: response.data.total_count };
+  return { resultString, totalCount: commitsData.total_count };
 };
 
 const main = async () => {
