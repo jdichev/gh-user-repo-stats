@@ -8,7 +8,7 @@ const headersList = {
   Accept: "application/vnd.github.cloak-preview",
 };
 
-const delimiter = ";;";
+const separator = "\t";
 const github = process.env.GH_URL;
 const members = process.env.MEMBERS.split(",");
 const repos = process.env.REPOS.split(",");
@@ -49,7 +49,7 @@ const doRequest = async (member, repo) => {
       `total`,
       `additions`,
       `deletions`,
-    ].join(delimiter)
+    ].join(separator)
   );
 
   for (const item of commitsData.items) {
@@ -72,7 +72,7 @@ const doRequest = async (member, repo) => {
         `${itemData.stats.total}`,
         `${itemData.stats.additions}`,
         `${itemData.stats.deletions}`,
-      ].join(delimiter)
+      ].join(separator)
     );
 
     console.log(".");
@@ -111,10 +111,10 @@ const main = async () => {
   }
 
   const sumsResultStrings = [];
-  sumsResultStrings.push(`TOTAL${delimiter}${totalCount}`);
+  sumsResultStrings.push(`TOTAL${separator}${totalCount}`);
 
   totalPerRepo.forEach((value, key) => {
-    sumsResultStrings.push(`${key}${delimiter}${value}`);
+    sumsResultStrings.push(`${key}${separator}${value}`);
   });
 
   fs.writeFileSync(
