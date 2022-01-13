@@ -2,6 +2,9 @@ const fs = require("fs");
 const path = require("path");
 const axios = require("axios");
 
+process.env["NODE_TLS_REJECT_UNAUTHORIZED"] = 0;
+
+
 require("dotenv").config();
 
 const headersList = {
@@ -122,7 +125,7 @@ const main = async () => {
 
   fs.writeFileSync(
     path.join(__dirname, "out", "summary.csv"),
-    sumsResultStrings.join(`\n`)
+    sumsResultStrings.join(`\n${"-".repeat(80)}\n\t-`)
   );
 };
 
