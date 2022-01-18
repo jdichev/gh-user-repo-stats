@@ -4,7 +4,6 @@ const axios = require("axios");
 
 process.env["NODE_TLS_REJECT_UNAUTHORIZED"] = 0;
 
-
 require("dotenv").config();
 
 const headersList = {
@@ -32,7 +31,7 @@ const doRequest = async (member, repo) => {
     .request({
       url:
         `${github}/search/commits?q=author-email:${member}+repo:${repo}` +
-        `+committer-date:${startDate}..${endDate}+merge:false`,
+        `+committer-date:${startDate}..${endDate}+merge:false&per_page=100`,
       method: "GET",
       headers: headersList,
       auth: {
@@ -42,11 +41,21 @@ const doRequest = async (member, repo) => {
     })
     .catch(handleError);
 
+  let itemsOmmitted = false;
+  if (commitsData.total_count > commitsData.items.length) {
+    itemsOmmitted = true;
+    console.warn(
+      "Total count larger than retrieved items. Some changes are ommitted due to GH API quota"
+    );
+  }
+
   csvRows.push(
     [
       `${member}`,
       `${repo}`,
-      `${commitsData.total_count}`,
+      `${commitsData.total_count}${
+        itemsOmmitted && " (ommitted items below; see log)"
+      }`,
       `start ${startDate}`,
       `end ${endDate}`,
       `total`,
