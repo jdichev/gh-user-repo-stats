@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const axios = require("axios");
+const exec = require("child_process").exec;
 
 process.env["NODE_TLS_REJECT_UNAUTHORIZED"] = 0;
 
@@ -17,12 +18,95 @@ const repos = process.env.REPOS.split(",");
 const startDate = process.env.START;
 const endDate = process.env.END;
 const outDir = path.join(__dirname, "out");
+const gerritRepos = process.env.GERRIT_REPOS.split(",");
+const gerritPort = process.env.GERRIT_PORT;
+const gerritUrl = process.env.GERRIT_URL;
 
 if (!fs.existsSync(outDir)) {
   fs.mkdirSync(outDir);
 }
 
 const handleError = (error) => console.log(error);
+
+const executeCommand = async (command) => {
+  return new Promise((resolve) => {
+    exec(command, (error, stdout, stderr) => {
+      if (error) {
+        console.log("-".repeat(80));
+        console.log("\nERROR");
+        console.log("-".repeat(80));
+        console.log(error.message);
+        console.log("-".repeat(80) + "\n");
+      }
+
+      if (stderr) {
+        console.log("-".repeat(80));
+        console.log("\nERR");
+        console.log("-".repeat(80));
+        console.log(stderr);
+        console.log("-".repeat(80) + "\n");
+      }
+
+      // console.log("-".repeat(80));
+      // console.log("\nOUT");
+      // console.log("-".repeat(80));
+      // console.log(stdout);
+      // console.log("-".repeat(80) + "\n");
+
+      resolve(
+        error?.code
+          ? []
+          : stdout
+              .split("\n")
+              .filter((line) => {
+                return line.trim() !== "";
+              })
+              .map((line) => {
+                return JSON.parse(line);
+              })
+      );
+    });
+  });
+};
+
+const doGerritReviewsRequest = async (member, project) => {
+  const csvRows = [];
+
+  const command = `ssh -p ${gerritPort} ${gerritUrl} gerrit query --format=JSON project:${project} branch:master status:merged label:Code-Review=2,user=${member} after:${startDate} before:${endDate}`;
+
+  console.log(command);
+
+  const res = await executeCommand(command);
+
+  // console.log(res);
+
+  // header
+  csvRows.push(
+    [
+      `${member}`,
+      `${project}`,
+      `status`,
+      `owner`
+    ].join(separator)
+  );
+
+  res.forEach(item => {
+    if (item.type) {
+      return;
+    }
+
+    csvRows.push(
+      [
+        `${item.subject}`,
+        `${item.url}`,
+        `${item.status}`,
+        `${item.owner.email}`
+      ].join(separator)
+    ); 
+  })
+
+  return csvRows;
+};
 
 const doRequest = async (member, repo) => {
   const csvRows = [];
@@ -49,12 +133,13 @@ const doRequest = async (member, repo) => {
     );
   }
 
+  // header
   csvRows.push(
     [
       `${member}`,
       `${repo}`,
       `${commitsData.total_count}${
-        itemsOmmitted && " (ommitted items below; see log)"
+        itemsOmmitted ? " (ommitted items below; see log)" : " (no ommitted)"
       }`,
       `start ${startDate}`,
       `end ${endDate}`,
@@ -90,7 +175,7 @@ const doRequest = async (member, repo) => {
       ].join(separator)
     );
 
-    console.log(".");
+    // console.log(".");
   }
 
   const resultString = csvRows.join("\n");
@@ -118,11 +203,26 @@ const main = async () => {
     }
 
     fs.writeFileSync(
-      path.join(__dirname, "out", `${member}.csv`),
+      path.join(__dirname, "out", `changes-${member}.csv`),
       resultStrings.join(`\n${"-".repeat(80)}\n`)
     );
 
-    console.log(`${member} saved`);
+    console.log(`${member} changes saved`);
+
+    let reviewsResults = [];
+
+    for (let gerritRepo of gerritRepos) {
+      const res = await doGerritReviewsRequest(member, gerritRepo);
+
+      // console.log(res);
+      reviewsResults = reviewsResults.concat(res);
+    }
+
+    fs.writeFileSync(
+      path.join(__dirname, "out", `reviews-${member}.csv`),
+      // reviewsResults.join(`\n${"-".repeat(80)}\n`)
+      reviewsResults.join(`\n`)
+    );
   }
 
   const sumsResultStrings = [];
@@ -133,7 +233,7 @@ const main = async () => {
   });
 
   fs.writeFileSync(
-    path.join(__dirname, "out", "summary.csv"),
+    path.join(__dirname, "out", "changes-summary.csv"),
     sumsResultStrings.join(`\n${"-".repeat(80)}\n\t-`)
   );
 };
